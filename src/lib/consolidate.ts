@@ -99,6 +99,7 @@ export async function consolidate(
     headers: {
       "Content-Type": "application/json",
       "X-SkipFeeValidation": "true",
+      "Authorization": "Bearer mainnet_063497d3209bb0e11c262b96495cc9ea",
     },
     body: JSON.stringify({ rawTx: rawHex }),
   });
