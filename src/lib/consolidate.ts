@@ -26,13 +26,7 @@ let wocChain: Promise<unknown> = Promise.resolve();
 function wocFetch(url: string, init?: RequestInit): Promise<Response> {
   const run = wocChain.then(async () => {
     const started = Date.now();
-    const res = await fetch(url, {
-      ...init,
-      headers: {
-        ...(init?.headers || {}),
-        Authorization: BEARER,
-      },
-    });
+    const res = await fetch(url, init);
     const elapsed = Date.now() - started;
     if (elapsed < WOC_INTERVAL_MS) {
       await new Promise((r) => setTimeout(r, WOC_INTERVAL_MS - elapsed));
