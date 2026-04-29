@@ -18,15 +18,40 @@ export type ProgressCb = (p: ConsolidationProgress) => void;
 
 const WOC_BASE = "https://api.whatsonchain.com/v1/bsv/main";
 const ARC_URL = "https://arc.taal.com/v1/tx";
+const BEARER = "Bearer mainnet_063497d3209bb0e11c262b96495cc9ea";
+
+// Throttled fetch queue — WhatsOnChain limit ~3 req/s. We pace at 340ms.
+const WOC_INTERVAL_MS = 340;
+let wocChain: Promise<unknown> = Promise.resolve();
+function wocFetch(url: string, init?: RequestInit): Promise<Response> {
+  const run = wocChain.then(async () => {
+    const started = Date.now();
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        Authorization: BEARER,
+      },
+    });
+    const elapsed = Date.now() - started;
+    if (elapsed < WOC_INTERVAL_MS) {
+      await new Promise((r) => setTimeout(r, WOC_INTERVAL_MS - elapsed));
+    }
+    return res;
+  });
+  // Keep the chain alive even if a request errors
+  wocChain = run.catch(() => undefined);
+  return run;
+}
 
 export async function fetchUtxos(address: string): Promise<WocUtxo[]> {
-  const res = await fetch(`${WOC_BASE}/address/${address}/unspent`);
+  const res = await wocFetch(`${WOC_BASE}/address/${address}/unspent`);
   if (!res.ok) throw new Error(`WoC unspent failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchBeef(txid: string): Promise<number[]> {
-  const res = await fetch(`${WOC_BASE}/tx/${txid}/beef`);
+  const res = await wocFetch(`${WOC_BASE}/tx/${txid}/beef`);
   if (!res.ok) throw new Error(`BEEF fetch failed for ${txid}: ${res.status}`);
   // Endpoint returns hex string
   const hex = (await res.text()).trim().replace(/^"|"$/g, "");
